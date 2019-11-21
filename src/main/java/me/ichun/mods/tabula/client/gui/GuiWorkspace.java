@@ -30,7 +30,6 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.client.renderer.texture.TextureMap;
@@ -49,7 +48,8 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.util.glu.Project;
 
-import javax.vecmath.*;
+import javax.vecmath.Matrix4d;
+import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
 import java.io.File;
 import java.io.FileInputStream;
@@ -531,29 +531,9 @@ public class GuiWorkspace extends IWorkspace
 
                             Vec3d toMoveDiff = toMovePosition.subtract(anchor);
 
-                            Optional<CubeInfo> parent = getForIdentifier(toMove.parentIdentifier);
-
                             Point3d point = new Point3d(toMoveDiff.x, toMoveDiff.y, toMoveDiff.z);
 
-
-                            while(parent.isPresent()) {
-                                CubeInfo info = parent.get();
-
-                                Matrix4d boxRotateX = new Matrix4d();
-                                Matrix4d boxRotateY = new Matrix4d();
-                                Matrix4d boxRotateZ = new Matrix4d();
-
-                                boxRotateX.rotX(Math.toRadians(-info.rotation[0]));
-                                boxRotateY.rotY(Math.toRadians(info.rotation[1]));
-                                boxRotateZ.rotZ(Math.toRadians(info.rotation[2]));
-                                
-                                boxRotateZ.transform(point);
-                                boxRotateY.transform(point);
-                                boxRotateX.transform(point);
-
-
-                                parent = getForIdentifier(info.parentIdentifier);
-                            }
+                            getForIdentifier(toMove.parentIdentifier).ifPresent(c -> rotatePoint(point, c));
 
                             toMove.position[0] -= point.x * 16F;
                             toMove.position[1] += point.y * 16F;
@@ -951,6 +931,22 @@ public class GuiWorkspace extends IWorkspace
 
             GlStateManager.popMatrix();
         }
+    }
+
+    private void rotatePoint(Point3d point, CubeInfo info) {
+        getForIdentifier(info.parentIdentifier).ifPresent(c -> rotatePoint(point, c));
+
+        Matrix4d boxRotateX = new Matrix4d();
+        Matrix4d boxRotateY = new Matrix4d();
+        Matrix4d boxRotateZ = new Matrix4d();
+
+        boxRotateX.rotX(Math.toRadians(-info.rotation[0]));
+        boxRotateY.rotY(Math.toRadians(info.rotation[1]));
+        boxRotateZ.rotZ(Math.toRadians(info.rotation[2]));
+
+        boxRotateZ.transform(point);
+        boxRotateY.transform(point);
+        boxRotateX.transform(point);
     }
 
     private Optional<Vec3d> getPosition(Pair<Integer, String> pair) {
