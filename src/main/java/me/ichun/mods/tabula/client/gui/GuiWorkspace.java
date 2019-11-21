@@ -18,6 +18,7 @@ import me.ichun.mods.ichunutil.common.module.tabula.project.components.CubeInfo;
 import me.ichun.mods.tabula.client.core.ModelSelector;
 import me.ichun.mods.tabula.client.core.ResourceHelper;
 import me.ichun.mods.tabula.client.gui.window.*;
+import me.ichun.mods.tabula.client.gui.window.element.ElementListTree;
 import me.ichun.mods.tabula.client.mainframe.core.ProjectHelper;
 import me.ichun.mods.tabula.client.model.ModelVoxel;
 import me.ichun.mods.tabula.common.Tabula;
@@ -29,6 +30,7 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.client.renderer.texture.TextureMap;
@@ -37,20 +39,27 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.translation.I18n;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.util.glu.Project;
 
+import javax.vecmath.*;
+import javax.vecmath.Vector3d;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
 public class GuiWorkspace extends IWorkspace
 {
@@ -120,6 +129,9 @@ public class GuiWorkspace extends IWorkspace
     public int controlDragY;
 
     public boolean wantToExit;
+
+    public boolean vertexSnapping;
+    private Pair<Integer, String> anchorSelectedVertex = Pair.of(-1, "");
 
     public boolean openNextNewProject;
 
@@ -495,15 +507,87 @@ public class GuiWorkspace extends IWorkspace
         Project.gluPerspective(cameraFov, (float)(resolution.getScaledWidth_double() / resolution.getScaledHeight_double()), 1F, 10000F);
         GlStateManager.matrixMode(GL11.GL_MODELVIEW);
         GlStateManager.loadIdentity();
+
         GlStateManager.clearColor(0F, 0F, 0F, 255F);
         GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT);
 
+        Pair<Integer, String> mouseOver = Pair.of(-1, "");
+        if(vertexSnapping) {
+            mouseOver = renderVertexSnapping(true, -1);
+        }
+
         if (Mouse.isButtonDown(0) && !mouseLeftDown) {
-            modelSelector.onClick(mouseX, mouseY);
+            if(mouseOver.getLeft() != -1) {
+                boolean already = this.anchorSelectedVertex.getLeft() != -1;
+                if(already) {
+                    if(!this.anchorSelectedVertex.getRight().equals(mouseOver.getRight())) {
+                        Optional<Vec3d> anchorO = getPosition(mouseOver);
+                        Optional<CubeInfo> toMoveO = getForIdentifier(this.anchorSelectedVertex.getRight());
+                        if(anchorO.isPresent() && toMoveO.isPresent()) {
+                            Vec3d anchor = anchorO.get();
+
+                            CubeInfo toMove = toMoveO.get();
+                            Vec3d toMovePosition = this.getPosition(this.anchorSelectedVertex).orElseThrow(IllegalArgumentException::new);
+
+                            Vec3d toMoveDiff = toMovePosition.subtract(anchor);
+
+                            Optional<CubeInfo> parent = getForIdentifier(toMove.parentIdentifier);
+
+                            Point3d point = new Point3d(toMoveDiff.x, toMoveDiff.y, toMoveDiff.z);
+
+
+                            while(parent.isPresent()) {
+                                CubeInfo info = parent.get();
+
+                                Matrix4d boxRotateX = new Matrix4d();
+                                Matrix4d boxRotateY = new Matrix4d();
+                                Matrix4d boxRotateZ = new Matrix4d();
+
+                                boxRotateX.rotX(Math.toRadians(-info.rotation[0]));
+                                boxRotateY.rotY(Math.toRadians(info.rotation[1]));
+                                boxRotateZ.rotZ(Math.toRadians(info.rotation[2]));
+                                
+                                boxRotateZ.transform(point);
+                                boxRotateY.transform(point);
+                                boxRotateX.transform(point);
+
+
+                                parent = getForIdentifier(info.parentIdentifier);
+                            }
+
+                            toMove.position[0] -= point.x * 16F;
+                            toMove.position[1] += point.y * 16F;
+                            toMove.position[2] += point.z * 16F;
+
+                            Gson gson = new Gson();
+                            String s = gson.toJson(toMove);
+                            if(!this.remoteSession)
+                            {
+                                Tabula.proxy.tickHandlerClient.mainframe.updateCube(this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos());
+                            }
+                            else if(!this.sessionEnded && this.isEditor)
+                            {
+                                Tabula.channel.sendToServer(new PacketGenericMethod(this.host, "updateCube", this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos()));
+                            }
+                        }
+
+                        this.anchorSelectedVertex = Pair.of(-1, "");
+                    }
+
+                } else {
+                    this.anchorSelectedVertex = mouseOver;
+                }
+            } else {
+                modelSelector.onClick(mouseX, mouseY, this.vertexSnapping);
+            }
         }
 
         GlStateManager.clearColor((float)currentTheme.workspaceBackground[0] / 255F, (float)currentTheme.workspaceBackground[1] / 255F, (float)currentTheme.workspaceBackground[2] / 255F, 255F);
         GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+        if(vertexSnapping) {
+            renderVertexSnapping(false, mouseOver.getLeft());
+        }
 
         renderWorkspace(mouseX, mouseY, renderTick);
 
@@ -693,7 +777,7 @@ public class GuiWorkspace extends IWorkspace
 
         updateElementDragged(mouseX, mouseY);
 
-        if(controlDrag >= 0)
+        if(controlDrag >= 0 && !this.vertexSnapping)
         {
             if(Mouse.isButtonDown(0))
             {
@@ -869,6 +953,16 @@ public class GuiWorkspace extends IWorkspace
         }
     }
 
+    private Optional<Vec3d> getPosition(Pair<Integer, String> pair) {
+        return getForIdentifier(pair.getRight()).map(c -> {
+            int i = pair.getLeft();
+            int x = (i >> 2) & 1;
+            int y = (i >> 1) & 1;
+            int z = i & 1;
+            return getModelPosAlpha(c, x, y, z);
+        });
+    }
+
     @Override
     public void updateKeyStates()
     {
@@ -913,6 +1007,207 @@ public class GuiWorkspace extends IWorkspace
     public void applyModelTranslation() {
         GlStateManager.translate(0.0F, 2.0005F, 0.0F);
         GlStateManager.scale(-1.0F, -1.0F, 1.0F);
+    }
+
+    public Pair<Integer, String> renderVertexSnapping(boolean searchSelectedVertex, int selectedVertex) {
+
+        int vertex = -1;
+        String iden = "";
+
+        GlStateManager.pushMatrix();
+
+        GlStateManager.enableLighting();
+
+
+        RenderHelper.enableGUIStandardItemLighting();
+
+        int ii = 15728880;
+        int jj = ii % 65536;
+        int kk = ii / 65536;
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, (float)jj / 1.0F, (float)kk / 1.0F);
+
+        applyCamera();
+
+        ArrayList<ElementListTree.Tree> trees = windowModelTree.modelList.trees;
+
+        for (ElementListTree.Tree tree : trees) {
+            if (tree.selected && tree.attachedObject instanceof CubeInfo) {
+                CubeInfo info = (CubeInfo) tree.attachedObject;
+
+                boolean otherCubeSelected = !info.identifier.equals(this.anchorSelectedVertex.getRight());
+
+                GlStateManager.pushMatrix();
+
+                GlStateManager.scale(-1, 1, -1);
+                GlStateManager.translate(0, 2, 0);
+
+                IntBuffer buffer = BufferUtils.createIntBuffer(1);
+
+                for (int i = 0; i < 8; i++) {
+                    int x = (i >> 2) & 1;
+                    int y = (i >> 1) & 1;
+                    int z = i & 1;
+
+                    Vec3d alpha = getModelPosAlpha(info, x, y, z);
+
+                    if(searchSelectedVertex) {
+                        buffer.rewind();
+                        GL11.glReadPixels(Mouse.getX(), Mouse.getY(), 1, 1, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, buffer);
+                        int before = buffer.get();
+
+                        drawCubeoid(alpha.addVector(-0.01, -0.01, -0.01), alpha.addVector(0.01, 0.01, 0.01));
+
+                        buffer.rewind();
+                        GL11.glReadPixels(Mouse.getX(), Mouse.getY(), 1, 1, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, buffer);
+                        int after = buffer.get();
+
+                        if(before != after) {
+                            vertex = i;
+                            iden = info.identifier;
+                        }
+                    } else {
+                        if(info.identifier.equals(anchorSelectedVertex.getRight()) && i == this.anchorSelectedVertex.getLeft()) {
+                            GlStateManager.color(0, 1F, 0);
+                        } else if(i == selectedVertex) {
+                            GlStateManager.color(1F, 0, 0);
+                        } else {
+                            GlStateManager.color(0.5F, 0.25F, 1F);
+                        }
+                        drawCubeoid(alpha.addVector(-0.01, -0.01, -0.01), alpha.addVector(0.01, 0.01, 0.01));
+                        GlStateManager.color(1F, 1F, 1F);
+
+                        if(i == selectedVertex && otherCubeSelected) {
+
+                            getPosition(this.anchorSelectedVertex).ifPresent(from -> {
+                                BufferBuilder buff = Tessellator.getInstance().getBuffer();
+                                buff.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+
+                                buff.pos(from.x, from.y, from.z).color(1F, 1F, 1F, 1F).endVertex();
+                                buff.pos(alpha.x, alpha.y, alpha.z).color(1F, 1F, 1F, 1F).endVertex();
+
+                                Tessellator.getInstance().draw();
+                            });
+
+                        }
+
+                    }
+                }
+
+                GlStateManager.popMatrix();
+
+                break;
+            } else if(tree.attachedObject instanceof CubeInfo && this.anchorSelectedVertex.getRight().equals(((CubeInfo)tree.attachedObject).identifier)) {
+                CubeInfo info = (CubeInfo) tree.attachedObject;
+
+                int i = this.anchorSelectedVertex.getLeft();
+
+                int x = (i >> 2) & 1;
+                int y = (i >> 1) & 1;
+                int z = i & 1;
+
+                Vec3d alpha = getModelPosAlpha(info, x, y, z);
+
+                GlStateManager.pushMatrix();
+
+                GlStateManager.scale(-1, 1, -1);
+                GlStateManager.translate(0, 2, 0);
+
+                GlStateManager.color(1F, 0.5F, 0.25F);
+                drawCubeoid(alpha.addVector(-0.01, -0.01, -0.01), alpha.addVector(0.01, 0.01, 0.01));
+
+                GlStateManager.popMatrix();
+            }
+        }
+
+        GlStateManager.popMatrix();
+
+        return Pair.of(vertex, iden);
+    }
+
+    private Optional<CubeInfo> getForIdentifier(String identifier) {
+        ArrayList<ElementListTree.Tree> trees = windowModelTree.modelList.trees;
+
+        for (ElementListTree.Tree tree : trees) {
+            if (tree.attachedObject instanceof CubeInfo) {
+                CubeInfo info = (CubeInfo) tree.attachedObject;
+                if(info.identifier.equals(identifier)) {
+                    return Optional.of(info);
+                }
+            }
+        }
+
+        return Optional.empty();
+
+    }
+
+    //Copied From DumbLibrary -> https://github.com/Dumb-Code/DumbLibrary/blob/5cd5fe4e5f94385d59de928168642b86cf9b7a0a/src/main/java/net/dumbcode/dumblibrary/server/animation/TabulaUtils.java#L103-L140
+    public Vec3d getModelPosAlpha(CubeInfo cube, float xalpha, float yalpha, float zalpha) {
+        double[] offset = cube.offset;
+        int[] dimensions = cube.dimensions;
+        return getModelPos(cube,
+            (offset[0] + dimensions[0] * xalpha) / 16D,
+            (offset[1] + dimensions[1] * yalpha) / -16D,
+            (offset[2] + dimensions[2] * zalpha) / -16D
+        );
+    }
+
+    //Copied From DumbLibrary -> https://github.com/Dumb-Code/DumbLibrary/blob/5cd5fe4e5f94385d59de928168642b86cf9b7a0a/src/main/java/net/dumbcode/dumblibrary/server/animation/TabulaUtils.java#L103-L140
+    public Vec3d getModelPos(CubeInfo cube, double x, double y, double z) {
+        Point3d rendererPos = new Point3d(x, y, z);
+
+        Matrix4d boxTranslate = new Matrix4d();
+        Matrix4d boxRotateX = new Matrix4d();
+        Matrix4d boxRotateY = new Matrix4d();
+        Matrix4d boxRotateZ = new Matrix4d();
+
+        double[] point = cube.position;
+        boxTranslate.set(new Vector3d(point[0] / 16D, -point[1] / 16D, -point[2] / 16D));
+
+        double[] rotation = cube.rotation;
+
+        boxRotateX.rotX(Math.toRadians(rotation[0]));
+        boxRotateY.rotY(Math.toRadians(-rotation[1]));
+        boxRotateZ.rotZ(Math.toRadians(-rotation[2]));
+
+        boxRotateX.transform(rendererPos);
+        boxRotateY.transform(rendererPos);
+        boxRotateZ.transform(rendererPos);
+        boxTranslate.transform(rendererPos);
+
+        return getForIdentifier(cube.parentIdentifier)
+            .map(c -> getModelPos(c, rendererPos.getX(), rendererPos.getY(), rendererPos.getZ()))
+            .orElseGet(() -> new Vec3d(rendererPos.getX(), rendererPos.getY(), rendererPos.getZ()));
+    }
+
+    //Copied from ProjectNublar -> https://github.com/Dumb-Code/ProjectNublar/blob/dd8e5efeb4fab2659d7b9845d7d962d351f153d2/src/main/java/net/dumbcode/projectnublar/client/utils/RenderUtils.java#L75-L103
+    public static void drawCubeoid(Vec3d s, Vec3d e) {
+        BufferBuilder buff = Tessellator.getInstance().getBuffer();
+        buff.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_NORMAL);
+        buff.pos(s.x, e.y, s.z).normal(0, 1, 0).endVertex();
+        buff.pos(s.x, e.y, e.z).normal(0, 1, 0).endVertex();
+        buff.pos(e.x, e.y, e.z).normal(0, 1, 0).endVertex();
+        buff.pos(e.x, e.y, s.z).normal(0, 1, 0).endVertex();
+        buff.pos(s.x, s.y, e.z).normal(0, -1, 0).endVertex();
+        buff.pos(s.x, s.y, s.z).normal(0, -1, 0).endVertex();
+        buff.pos(e.x, s.y, s.z).normal(0, -1, 0).endVertex();
+        buff.pos(e.x, s.y, e.z).normal(0, -1, 0).endVertex();
+        buff.pos(e.x, e.y, e.z).normal(1, 0, 0).endVertex();
+        buff.pos(e.x, s.y, e.z).normal(1, 0, 0).endVertex();
+        buff.pos(e.x, s.y, s.z).normal(1, 0, 0).endVertex();
+        buff.pos(e.x, e.y, s.z).normal(1, 0, 0).endVertex();
+        buff.pos(s.x, s.y, e.z).normal(-1, 0, 0).endVertex();
+        buff.pos(s.x, e.y, e.z).normal(-1, 0, 0).endVertex();
+        buff.pos(s.x, e.y, s.z).normal(-1, 0, 0).endVertex();
+        buff.pos(s.x, s.y, s.z).normal(-1, 0, 0).endVertex();
+        buff.pos(s.x, e.y, e.z).normal(0, 0, 1).endVertex();
+        buff.pos(s.x, s.y, e.z).normal(0, 0, 1).endVertex();
+        buff.pos(e.x, s.y, e.z).normal(0, 0, 1).endVertex();
+        buff.pos(e.x, e.y, e.z).normal(0, 0, 1).endVertex();
+        buff.pos(s.x, s.y, s.z).normal(0, 0, -1).endVertex();
+        buff.pos(s.x, e.y, s.z).normal(0, 0, -1).endVertex();
+        buff.pos(e.x, e.y, s.z).normal(0, 0, -1).endVertex();
+        buff.pos(e.x, s.y, s.z).normal(0, 0, -1).endVertex();
+        Tessellator.getInstance().draw();
     }
 
     public void renderWorkspace(int mouseX, int mouseY, float f)
@@ -984,6 +1279,7 @@ public class GuiWorkspace extends IWorkspace
             ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
 
             ArrayList<CubeInfo> selected = new ArrayList<>();
+            if(!this.vertexSnapping)
             for(me.ichun.mods.tabula.client.gui.window.element.ElementListTree.Tree tree : windowModelTree.modelList.trees)
             {
                 if(tree.selected)
@@ -1145,6 +1441,7 @@ public class GuiWorkspace extends IWorkspace
         GlStateManager.disableLighting();
 
         GlStateManager.popMatrix();
+
     }
 
     //only group parts. not actual individual cubes

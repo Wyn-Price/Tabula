@@ -37,6 +37,9 @@ public class WindowTopDock extends WindowTopDockBase
     public static final int ID_AUTO_LAYOUT = 22;
     public static final int ID_GHOST_MODEL = 23;
 
+    public static final int ID_VERTEX_SNAP = 25;
+
+
     public static final int ID_WOOD = -1;
 
     public WindowTopDock(IWorkspace parent, int w, int h)
@@ -76,6 +79,7 @@ public class WindowTopDock extends WindowTopDockBase
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_THEMES, true, 0, 0, "topdock.themes", new ResourceLocation("tabula", "textures/icon/themes.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_SETTINGS, true, 0, 0, "topdock.settings", new ResourceLocation("tabula", "textures/icon/settings.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_CREDITS, true, 0, 0, "topdock.info", new ResourceLocation("tabula", "textures/icon/info.png")));
+        elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_VERTEX_SNAP, true, 0, 0, "topdock.vertex", new ResourceLocation("tabula", "textures/icon/vertex.png")));
         elements.add(new ElementButtonTextured(this, width - 20, 0, ID_EXIT_TABULA, true, 1, 0, "topdock.exitTabula", new ResourceLocation("tabula", "textures/icon/exittabula.png")));
     }
 
@@ -197,6 +201,10 @@ public class WindowTopDock extends WindowTopDockBase
         {
             Tabula.config.renderWorkspaceBlock = (((ElementToggle)element).toggledState ? 1 : 0);
             Tabula.config.save();
+        }
+        else if(element.id == ID_VERTEX_SNAP) {
+            ((GuiWorkspace)workspace).vertexSnapping = !((GuiWorkspace)workspace).vertexSnapping;
+
         }
     }
 }

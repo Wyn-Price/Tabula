@@ -57,12 +57,12 @@ public class ModelSelector {
      * @param mouseX The x coordinate as it is used in minecraft interfaces
      * @param mouseY The y coordinate as it is used in minecraft interfaces
      */
-    public void onClick(int mouseX, int mouseY) {
+    public void onClick(int mouseX, int mouseY, boolean vertexSnapping) {
         if(!isOnWindow(mouseX, mouseY) && workspace.projectManager.selectedProject != -1) {
 
             ArrayList<ElementListTree.Tree> trees = workspace.windowModelTree.modelList.trees;
 
-            if(Tabula.config.renderModelControls == 1)
+            if(Tabula.config.renderModelControls == 1 && !vertexSnapping)
             {
                 for(ElementListTree.Tree tree : trees)
                 {
