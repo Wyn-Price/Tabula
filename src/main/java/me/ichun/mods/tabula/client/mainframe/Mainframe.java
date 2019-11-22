@@ -14,16 +14,21 @@ import me.ichun.mods.tabula.common.Tabula;
 import me.ichun.mods.tabula.common.packet.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.translation.I18n;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import javax.imageio.ImageIO;
+import javax.vecmath.Matrix4d;
+import javax.vecmath.Point3d;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 //This is the class that holds all the info of the workspace and handles UI input from everyone.
 //The player hosting this doesn't edit this directly, he has his own workspace and whatever he does to the workspace there changes things here, which are sent back to him.
@@ -569,6 +574,21 @@ public class Mainframe
                 Object draggedOnto = info.getObjectByIdent(draggedOntoIdent);
                 Object dragged = info.getObjectByIdent(draggedIdent);
 
+
+                Function<String, Optional<CubeInfo>> parenter = s -> {
+                    Object ident = info.getObjectByIdent(s);
+                    return ident instanceof CubeInfo ? Optional.of((CubeInfo) ident) : Optional.empty();
+                };
+
+                Supplier<Matrix4d> matSupplier = () -> {
+                    Matrix4d m = new Matrix4d();
+                    m.setIdentity();
+                    return m;
+                };
+
+                Vec3d globalRotationPoint = dragged instanceof CubeInfo ? GuiWorkspace.getModelPos((CubeInfo) dragged, 0, 0, 0, parenter) : Vec3d.ZERO;
+                Matrix4d globalRotationMatrix = dragged instanceof CubeInfo ? GuiWorkspace.globalRotationMatrix((CubeInfo) dragged, parenter) : matSupplier.get(); //q_n
+
                 //HANDLE.
                 //Cube on Group
                 if(dragged instanceof CubeInfo && draggedOnto instanceof CubeGroup && !((CubeGroup)draggedOnto).cubes.contains(dragged))
@@ -590,7 +610,35 @@ public class Mainframe
                     }
                     ((CubeInfo)draggedOnto).addChild((CubeInfo)dragged);
                 }
+
                 childProtectiveServices(info, draggedOnto, dragged);
+                if(dragged instanceof CubeInfo) {
+                    CubeInfo ci = (CubeInfo) dragged;
+                    Vec3d newPos = GuiWorkspace.getModelPos(ci, 0, 0, 0, parenter);
+                    Vec3d difference = newPos.subtract(Objects.requireNonNull(globalRotationPoint));
+                    Point3d point = new Point3d(difference.x, difference.y, difference.z);
+
+                    if(draggedOnto instanceof CubeInfo) {
+                        GuiWorkspace.rotatePoint(point, (CubeInfo) draggedOnto, parenter);
+                    }
+
+                    ci.position[0] -= point.x * 16F;
+                    ci.position[1] += point.y * 16F;
+                    ci.position[2] += point.z * 16F;
+
+                    Matrix4d parentInv = parenter.apply(ci.parentIdentifier).map(c -> GuiWorkspace.globalRotationMatrix(c, parenter)).orElseGet(matSupplier); //q_(n-1)
+                    parentInv.invert();
+
+                    //r_n = q_(n-1)' * q_n
+                    Matrix4d mat = new Matrix4d();
+                    mat.mul(parentInv, globalRotationMatrix);
+
+                    //Matrix is in xyz order. Get the euler angles.
+                    ci.rotation[0] = Math.toDegrees(Math.atan2(mat.m21, mat.m22));
+                    ci.rotation[1] = -Math.toDegrees(Math.asin(-mat.m20));
+                    ci.rotation[2] = -Math.toDegrees(Math.atan2(mat.m10, mat.m00));
+
+                }
 
                 streamProject(info);
             }

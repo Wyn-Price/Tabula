@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 public class GuiWorkspace extends IWorkspace
 {
@@ -521,19 +522,19 @@ public class GuiWorkspace extends IWorkspace
                 boolean already = this.anchorSelectedVertex.getLeft() != -1;
                 if(already) {
                     if(!this.anchorSelectedVertex.getRight().equals(mouseOver.getRight())) {
-                        Optional<Vec3d> anchorO = getPosition(mouseOver);
+                        Optional<Vec3d> anchorO = getPosition(mouseOver, this::getForIdentifier);
                         Optional<CubeInfo> toMoveO = getForIdentifier(this.anchorSelectedVertex.getRight());
                         if(anchorO.isPresent() && toMoveO.isPresent()) {
                             Vec3d anchor = anchorO.get();
 
                             CubeInfo toMove = toMoveO.get();
-                            Vec3d toMovePosition = this.getPosition(this.anchorSelectedVertex).orElseThrow(IllegalArgumentException::new);
+                            Vec3d toMovePosition = getPosition(this.anchorSelectedVertex, this::getForIdentifier).orElseThrow(IllegalArgumentException::new);
 
                             Vec3d toMoveDiff = toMovePosition.subtract(anchor);
 
                             Point3d point = new Point3d(toMoveDiff.x, toMoveDiff.y, toMoveDiff.z);
 
-                            getForIdentifier(toMove.parentIdentifier).ifPresent(c -> rotatePoint(point, c));
+                            getForIdentifier(toMove.parentIdentifier).ifPresent(c -> rotatePoint(point, c, this::getForIdentifier));
 
                             toMove.position[0] -= point.x * 16F;
                             toMove.position[1] += point.y * 16F;
@@ -933,8 +934,30 @@ public class GuiWorkspace extends IWorkspace
         }
     }
 
-    private void rotatePoint(Point3d point, CubeInfo info) {
-        getForIdentifier(info.parentIdentifier).ifPresent(c -> rotatePoint(point, c));
+    public static Matrix4d globalRotationMatrix(CubeInfo info, Function<String, Optional<CubeInfo>> parenter) {
+        Matrix4d boxRotateX = new Matrix4d();
+        Matrix4d boxRotateY = new Matrix4d();
+        Matrix4d boxRotateZ = new Matrix4d();
+
+        boxRotateX.rotX((float) Math.toRadians(info.rotation[0]));
+        boxRotateY.rotY((float) Math.toRadians(-info.rotation[1]));
+        boxRotateZ.rotZ((float) Math.toRadians(-info.rotation[2]));
+
+        Matrix4d parentGlobal = parenter.apply(info.parentIdentifier).map(c -> globalRotationMatrix(c, parenter)).orElseGet(() -> {
+            Matrix4d m = new Matrix4d();
+            m.setIdentity();
+            return m;
+        });
+
+        parentGlobal.mul(boxRotateZ);
+        parentGlobal.mul(boxRotateY);
+        parentGlobal.mul(boxRotateX);
+
+        return parentGlobal;
+    }
+
+    public static void rotatePoint(Point3d point, CubeInfo info, Function<String, Optional<CubeInfo>> parenter) {
+        parenter.apply(info.parentIdentifier).ifPresent(c -> rotatePoint(point, c, parenter));
 
         Matrix4d boxRotateX = new Matrix4d();
         Matrix4d boxRotateY = new Matrix4d();
@@ -949,13 +972,13 @@ public class GuiWorkspace extends IWorkspace
         boxRotateX.transform(point);
     }
 
-    private Optional<Vec3d> getPosition(Pair<Integer, String> pair) {
-        return getForIdentifier(pair.getRight()).map(c -> {
+    public static Optional<Vec3d> getPosition(Pair<Integer, String> pair, Function<String, Optional<CubeInfo>> parenter) {
+        return parenter.apply(pair.getRight()).map(c -> {
             int i = pair.getLeft();
             int x = (i >> 2) & 1;
             int y = (i >> 1) & 1;
             int z = i & 1;
-            return getModelPosAlpha(c, x, y, z);
+            return getModelPosAlpha(c, x, y, z, parenter);
         });
     }
 
@@ -1044,7 +1067,7 @@ public class GuiWorkspace extends IWorkspace
                     int y = (i >> 1) & 1;
                     int z = i & 1;
 
-                    Vec3d alpha = getModelPosAlpha(info, x, y, z);
+                    Vec3d alpha = getModelPosAlpha(info, x, y, z, this::getForIdentifier);
 
                     if(searchSelectedVertex) {
                         buffer.rewind();
@@ -1073,8 +1096,7 @@ public class GuiWorkspace extends IWorkspace
                         GlStateManager.color(1F, 1F, 1F);
 
                         if(i == selectedVertex && otherCubeSelected) {
-
-                            getPosition(this.anchorSelectedVertex).ifPresent(from -> {
+                            getPosition(this.anchorSelectedVertex, this::getForIdentifier).ifPresent(from -> {
                                 BufferBuilder buff = Tessellator.getInstance().getBuffer();
                                 buff.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
 
@@ -1083,10 +1105,9 @@ public class GuiWorkspace extends IWorkspace
 
                                 Tessellator.getInstance().draw();
                             });
-
                         }
-
                     }
+
                 }
 
                 GlStateManager.popMatrix();
@@ -1101,7 +1122,7 @@ public class GuiWorkspace extends IWorkspace
                 int y = (i >> 1) & 1;
                 int z = i & 1;
 
-                Vec3d alpha = getModelPosAlpha(info, x, y, z);
+                Vec3d alpha = getModelPosAlpha(info, x, y, z, this::getForIdentifier);
 
                 GlStateManager.pushMatrix();
 
@@ -1137,18 +1158,19 @@ public class GuiWorkspace extends IWorkspace
     }
 
     //Copied From DumbLibrary -> https://github.com/Dumb-Code/DumbLibrary/blob/5cd5fe4e5f94385d59de928168642b86cf9b7a0a/src/main/java/net/dumbcode/dumblibrary/server/animation/TabulaUtils.java#L103-L140
-    public Vec3d getModelPosAlpha(CubeInfo cube, float xalpha, float yalpha, float zalpha) {
+    public static Vec3d getModelPosAlpha(CubeInfo cube, float xalpha, float yalpha, float zalpha, Function<String, Optional<CubeInfo>> parenter) {
         double[] offset = cube.offset;
         int[] dimensions = cube.dimensions;
         return getModelPos(cube,
             (offset[0] + dimensions[0] * xalpha) / 16D,
             (offset[1] + dimensions[1] * yalpha) / -16D,
-            (offset[2] + dimensions[2] * zalpha) / -16D
+            (offset[2] + dimensions[2] * zalpha) / -16D,
+            parenter
         );
     }
 
     //Copied From DumbLibrary -> https://github.com/Dumb-Code/DumbLibrary/blob/5cd5fe4e5f94385d59de928168642b86cf9b7a0a/src/main/java/net/dumbcode/dumblibrary/server/animation/TabulaUtils.java#L103-L140
-    public Vec3d getModelPos(CubeInfo cube, double x, double y, double z) {
+    public static Vec3d getModelPos(CubeInfo cube, double x, double y, double z, Function<String, Optional<CubeInfo>> parenter) {
         Point3d rendererPos = new Point3d(x, y, z);
 
         Matrix4d boxTranslate = new Matrix4d();
@@ -1170,8 +1192,8 @@ public class GuiWorkspace extends IWorkspace
         boxRotateZ.transform(rendererPos);
         boxTranslate.transform(rendererPos);
 
-        return getForIdentifier(cube.parentIdentifier)
-            .map(c -> getModelPos(c, rendererPos.getX(), rendererPos.getY(), rendererPos.getZ()))
+        return parenter.apply(cube.parentIdentifier)
+            .map(c -> getModelPos(c, rendererPos.getX(), rendererPos.getY(), rendererPos.getZ(), parenter))
             .orElseGet(() -> new Vec3d(rendererPos.getX(), rendererPos.getY(), rendererPos.getZ()));
     }
 
