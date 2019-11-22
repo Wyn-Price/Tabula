@@ -1161,10 +1161,13 @@ public class GuiWorkspace extends IWorkspace
     public static Vec3d getModelPosAlpha(CubeInfo cube, float xalpha, float yalpha, float zalpha, Function<String, Optional<CubeInfo>> parenter) {
         double[] offset = cube.offset;
         int[] dimensions = cube.dimensions;
+
+        double grow = cube.mcScale;
+
         return getModelPos(cube,
-            (offset[0] + dimensions[0] * xalpha) / 16D,
-            (offset[1] + dimensions[1] * yalpha) / -16D,
-            (offset[2] + dimensions[2] * zalpha) / -16D,
+            (offset[0] - grow + (dimensions[0] + grow*2) * xalpha) / 16D,
+            (offset[1] - grow + (dimensions[1] + grow*2) * yalpha) / -16D,
+            (offset[2] - grow + (dimensions[2] + grow*2) * zalpha) / -16D,
             parenter
         );
     }
