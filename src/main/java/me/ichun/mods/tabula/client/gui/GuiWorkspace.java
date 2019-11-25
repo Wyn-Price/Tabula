@@ -132,7 +132,7 @@ public class GuiWorkspace extends IWorkspace
     public boolean wantToExit;
 
     public boolean vertexSnapping;
-    private Pair<Integer, String> anchorSelectedVertex = Pair.of(-1, "");
+    public Pair<Integer, String> anchorSelectedVertex = Pair.of(-1, "");
 
     public boolean openNextNewProject;
 
@@ -559,7 +559,11 @@ public class GuiWorkspace extends IWorkspace
                     this.anchorSelectedVertex = mouseOver;
                 }
             } else {
+                Object object = windowControls.selectedObject;
                 modelSelector.onClick(mouseX, mouseY, this.vertexSnapping);
+                if(object != null && windowControls.selectedObject == null) {
+                    this.anchorSelectedVertex = Pair.of(-1, "");
+                }
             }
         }
 

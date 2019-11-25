@@ -9,6 +9,7 @@ import me.ichun.mods.tabula.client.gui.GuiWorkspace;
 import me.ichun.mods.tabula.common.Tabula;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.ResourceLocation;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class WindowTopDock extends WindowTopDockBase
 {
@@ -204,7 +205,7 @@ public class WindowTopDock extends WindowTopDockBase
         }
         else if(element.id == ID_VERTEX_SNAP) {
             ((GuiWorkspace)workspace).vertexSnapping = !((GuiWorkspace)workspace).vertexSnapping;
-
+            ((GuiWorkspace) workspace).anchorSelectedVertex = Pair.of(-1, "");
         }
     }
 }
