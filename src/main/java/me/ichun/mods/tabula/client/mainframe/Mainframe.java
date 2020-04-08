@@ -611,7 +611,7 @@ public class Mainframe
                 }
 
                 childProtectiveServices(info, draggedOnto, dragged);
-                if(dragged instanceof CubeInfo) {
+                if(dragged instanceof CubeInfo && !GuiWorkspace.isAltKeyDown()) {
                     CubeInfo ci = (CubeInfo) dragged;
                     Vec3d newPos = GuiWorkspace.getModelPos(ci, 0, 0, 0, parenter);
                     Vec3d difference = newPos.subtract(Objects.requireNonNull(globalRotationPoint));
