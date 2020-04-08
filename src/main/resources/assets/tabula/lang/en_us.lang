@@ -57,6 +57,9 @@ window.notSaved.save=Would you like to save before closing?
 window.open.title=Open Project
 window.open.opening=Opening...
 window.open.failed=Failed to open file.
+window.open.sort.name=Name
+window.open.sort.modified=Date Modified
+window.open.sort.size=Size
 
 window.about.title=About
 window.about.line0=Mod Version: 

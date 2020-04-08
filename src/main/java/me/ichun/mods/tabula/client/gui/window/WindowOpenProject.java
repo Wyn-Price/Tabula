@@ -31,16 +31,23 @@ import java.util.List;
 public class WindowOpenProject extends Window
 {
     public ElementListTree modelList;
+    public ElementButton sortBy;
+    public ElementButton sortDir;
 
     public File openingFile;
     public String openingJson;
 
     private boolean keyVLastDown;
 
+    private int sortByType = 0; //0 -> name, 1 -> date, 2 -> size
+    private boolean ascending = true;
+
     public WindowOpenProject(IWorkspace parent, int x, int y, int w, int h, int minW, int minH)
     {
         super(parent, x, y, w, h, minW, minH, "window.open.title", true);
 
+        elements.add(sortDir = new ElementButton(this, 93, height - 22, 16, 16, 11, false, 1, 1, ""));
+        elements.add(sortBy = new ElementButton(this, 10, height - 22, 80, 16, 10, false, 1, 1, ""));
         elements.add(new ElementButton(this, width - 140, height - 22, 60, 16, 1, false, 1, 1, "element.button.ok"));
         elements.add(new ElementButton(this, width - 70, height - 22, 60, 16, 0, false, 1, 1, "element.button.cancel"));
         modelList = new ElementListTree(this, BORDER_SIZE + 1, BORDER_SIZE + 1 + 10, width - (BORDER_SIZE * 2 + 2), height - BORDER_SIZE - 22 - 16, 3, false, false);
@@ -61,10 +68,12 @@ public class WindowOpenProject extends Window
             }
         }
 
-        files.stream()
-            .filter(f -> !f.isDirectory() && ImportList.isFileSupported(f))
-            .sorted(Comparator.comparing(File::lastModified).reversed())
-            .forEach(f -> modelList.createTree(null, f, 26, 0, false, false));
+        for (File f : files) {
+            if (!f.isDirectory() && ImportList.isFileSupported(f)) {
+                modelList.createTree(null, f, 26, 0, false, false);
+            }
+        }
+        this.sortFiles();
 
     }
 
@@ -131,6 +140,42 @@ public class WindowOpenProject extends Window
                 }
             }
         }
+        if(element.id == 10) {
+            sortByType++;
+            sortByType%=3;
+            this.sortFiles();
+        }
+        if(element.id == 11) {
+            ascending = !ascending;
+            this.sortFiles();
+        }
+    }
+
+    private void sortFiles() {
+        Comparator<File> comparator;
+        switch (sortByType) {
+            case 0:
+                sortBy.text = "window.open.sort.name";
+                comparator = Comparator.comparing(f -> f.getName().toLowerCase());
+                break;
+            case 1:
+                sortBy.text = "window.open.sort.modified";
+                comparator = Comparator.comparing(File::lastModified).reversed();
+                break;
+            case 2:
+                sortBy.text = "window.open.sort.size";
+                comparator = Comparator.comparing(File::length).reversed();
+                break;
+            default: throw new IllegalArgumentException("Impossible sortby type " + sortByType);
+        }
+        if(!ascending) {
+            comparator = comparator.reversed();
+        }
+
+        sortDir.text = ascending ? "↑" : "↓";
+
+
+        modelList.trees.sort(Comparator.comparing(tree -> (File) tree.attachedObject, comparator));
     }
 
     private void initiateProject(ProjectInfo project, File file, boolean pasted) {
