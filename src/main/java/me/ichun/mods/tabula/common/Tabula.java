@@ -26,7 +26,7 @@ import java.io.File;
 @Mod(modid = Tabula.MOD_ID, name = Tabula.MOD_NAME,
         version = Tabula.VERSION,
         guiFactory = iChunUtil.GUI_CONFIG_FACTORY,
-        dependencies = "required-after:ichunutil@[7.2.101]",
+        dependencies = "required-after:ichunutil@[7.2.100]",
         acceptableRemoteVersions = "[" + iChunUtil.VERSION_MAJOR +".0.0," + iChunUtil.VERSION_MAJOR + ".1.0)",
         acceptedMinecraftVersions = iChunUtil.MC_VERSION_RANGE
 )
@@ -34,7 +34,7 @@ public class Tabula
 {
     public static final String MOD_NAME = "Tabula";
     public static final String MOD_ID = "tabula";
-    public static final String VERSION = iChunUtil.VERSION_MAJOR + ".0.100";
+    public static final String VERSION = iChunUtil.VERSION_MAJOR + ".0.101";
 
     public static final Logger LOGGER = Logger.createLogger(Tabula.MOD_NAME);
 
