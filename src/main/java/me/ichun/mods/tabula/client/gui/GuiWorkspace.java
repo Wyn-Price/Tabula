@@ -1328,6 +1328,7 @@ public class GuiWorkspace extends IWorkspace
             applyModelAnimations();
 
             GlStateManager.scale(1D / info.scale[0], 1D / info.scale[1], 1D / info.scale[2]);
+            GlStateManager.enableLighting();
             if(windowTexture.imageId != -1)
             {
                 GlStateManager.bindTexture(windowTexture.imageId);
