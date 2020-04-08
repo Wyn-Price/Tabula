@@ -87,7 +87,7 @@ public class WindowImport extends Window
 
                     if(!((GuiWorkspace)workspace).remoteSession)
                     {
-                        Tabula.proxy.tickHandlerClient.mainframe.overrideProject(proj.identifier, proj.getAsJson(), proj.bufferedTexture);
+                        Tabula.proxy.tickHandlerClient.mainframe.overrideProject(proj.identifier, proj.getAsJson(), proj.bufferedTexture, null);
                     }
                     else if(!((GuiWorkspace)workspace).sessionEnded && ((GuiWorkspace)workspace).isEditor)
                     {

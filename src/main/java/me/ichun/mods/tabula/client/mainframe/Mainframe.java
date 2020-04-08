@@ -18,14 +18,12 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.translation.I18n;
 import org.apache.commons.lang3.RandomStringUtils;
 
+import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -418,11 +416,12 @@ public class Mainframe
         }
     }
 
-    public void overrideProject(String projectIdent, String projectJson, BufferedImage image) // replaces an entire project with this, or creates a new one.
+    public void overrideProject(String projectIdent, String projectJson, BufferedImage image, @Nullable File file) // replaces an entire project with this, or creates a new one.
     {
         ProjectInfo project = ((new Gson()).fromJson(projectJson, ProjectInfo.class));
 
         project.repair();
+        project.saveFile = file;
 
         BufferedImage oriImage = null;
 
@@ -1692,7 +1691,7 @@ public class Mainframe
                 }
                 else
                 {
-                    overrideProject(projectIdentifier, proj.getAsJson(), projImage);
+                    overrideProject(projectIdentifier, proj.getAsJson(), projImage, null);
                 }
             }
             catch(IOException ignored)

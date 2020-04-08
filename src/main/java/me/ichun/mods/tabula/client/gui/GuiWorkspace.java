@@ -56,10 +56,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 public class GuiWorkspace extends IWorkspace
@@ -662,7 +659,7 @@ public class GuiWorkspace extends IWorkspace
                 {
                     copy();
                 }
-                if(Keyboard.isKeyDown(Keyboard.KEY_V) && !keyVDown && cubeCopied != null)
+                if(Keyboard.isKeyDown(Keyboard.KEY_V) && !keyVDown && cubeCopied != null && !isPasteBlocked())
                 {
                     paste(GuiScreen.isShiftKeyDown(), true);
                 }
@@ -936,6 +933,10 @@ public class GuiWorkspace extends IWorkspace
 
             GlStateManager.popMatrix();
         }
+    }
+
+    private boolean isPasteBlocked() {
+        return levels.stream().flatMap(Collection::stream).anyMatch(w -> w instanceof WindowOpenProject || w instanceof WindowLoadTexture);
     }
 
     public static Matrix4d globalRotationMatrix(CubeInfo info, Function<String, Optional<CubeInfo>> parenter) {

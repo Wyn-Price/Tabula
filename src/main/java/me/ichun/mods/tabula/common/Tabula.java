@@ -26,7 +26,7 @@ import java.io.File;
 @Mod(modid = Tabula.MOD_ID, name = Tabula.MOD_NAME,
         version = Tabula.VERSION,
         guiFactory = iChunUtil.GUI_CONFIG_FACTORY,
-        dependencies = "required-after:ichunutil@[7.2.100]",
+        dependencies = "required-after:ichunutil@[7.2.101]",
         acceptableRemoteVersions = "[" + iChunUtil.VERSION_MAJOR +".0.0," + iChunUtil.VERSION_MAJOR + ".1.0)",
         acceptedMinecraftVersions = iChunUtil.MC_VERSION_RANGE
 )

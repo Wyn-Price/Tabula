@@ -12,16 +12,23 @@ import me.ichun.mods.tabula.client.gui.GuiWorkspace;
 import me.ichun.mods.tabula.client.gui.window.element.ElementListTree;
 import me.ichun.mods.tabula.client.mainframe.core.ProjectHelper;
 import me.ichun.mods.tabula.common.Tabula;
+import org.lwjgl.input.Keyboard;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 public class WindowLoadTexture extends Window
 {
     public transient ElementListTree modelList;
+
+    private boolean keyVLastDown;
 
     public WindowLoadTexture(IWorkspace parent, int x, int y, int w, int h, int minW, int minH)
     {
@@ -52,6 +59,26 @@ public class WindowLoadTexture extends Window
     }
 
     @Override
+    public void draw(int mouseX, int mouseY) {
+        super.draw(mouseX, mouseY);
+        boolean vDown = Keyboard.isKeyDown(Keyboard.KEY_V);
+        if(GuiWorkspace.isCtrlKeyDown() && vDown && !this.keyVLastDown) {
+            Transferable transferable = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
+            if(transferable != null && transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                try {
+                    java.util.List<File> fileList = (List<File>) transferable.getTransferData(DataFlavor.javaFileListFlavor);
+                    if(fileList.size() == 1) {
+                        this.loadTexture(fileList.get(0), false);
+                    }
+                } catch (Throwable ignored) {
+                    //ignore
+                }
+            }
+        }
+        this.keyVLastDown = vDown;
+    }
+
+    @Override
     public void elementTriggered(Element element)
     {
         if(element.id == 0)
@@ -62,8 +89,6 @@ public class WindowLoadTexture extends Window
         {
             if(!((GuiWorkspace)workspace).projectManager.projects.isEmpty())
             {
-                ProjectInfo info = ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject);
-
                 boolean found = false;
 
                 boolean texture = false;
@@ -81,28 +106,7 @@ public class WindowLoadTexture extends Window
                     ElementListTree.Tree tree = modelList.trees.get(i);
                     if(tree.selected)
                     {
-                        info.textureFile = (File)tree.attachedObject;
-                        info.ignoreNextImage = true;
-                        info.textureFileMd5 = IOUtil.getMD5Checksum(info.textureFile);
-                        ((GuiWorkspace)workspace).windowTexture.listenTime = 0;
-
-                        BufferedImage image = null;
-                        try
-                        {
-                            image = ImageIO.read(info.textureFile);
-                        }
-                        catch(IOException e)
-                        {
-                        }
-
-                        if(!((GuiWorkspace)workspace).remoteSession)
-                        {
-                            Tabula.proxy.tickHandlerClient.mainframe.loadTexture(info.identifier, image, texture);
-                        }
-                        else if(!((GuiWorkspace)workspace).sessionEnded && ((GuiWorkspace)workspace).isEditor)
-                        {
-                            ProjectHelper.sendTextureToServer(((GuiWorkspace)workspace).host, info.identifier, texture, image);
-                        }
+                        this.loadTexture((File) tree.attachedObject, texture);
                         found = true;
                         break;
                     }
@@ -113,6 +117,33 @@ public class WindowLoadTexture extends Window
                     workspace.removeWindow(this, true);
                 }
             }
+        }
+    }
+
+    private void loadTexture(File file, boolean updateDims) {
+        ProjectInfo info = ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject);
+
+        info.textureFile = file;
+        info.ignoreNextImage = true;
+        info.textureFileMd5 = IOUtil.getMD5Checksum(info.textureFile);
+        ((GuiWorkspace)workspace).windowTexture.listenTime = 0;
+
+        BufferedImage image = null;
+        try
+        {
+            image = ImageIO.read(info.textureFile);
+        }
+        catch(IOException e)
+        {
+        }
+
+        if(!((GuiWorkspace)workspace).remoteSession)
+        {
+            Tabula.proxy.tickHandlerClient.mainframe.loadTexture(info.identifier, image, updateDims);
+        }
+        else if(!((GuiWorkspace)workspace).sessionEnded && ((GuiWorkspace)workspace).isEditor)
+        {
+            ProjectHelper.sendTextureToServer(((GuiWorkspace)workspace).host, info.identifier, updateDims, image);
         }
     }
 }
