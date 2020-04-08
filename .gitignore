@@ -6,6 +6,8 @@
 
 # IDEA Files #
 *.iml
+*.ipr
+*.iws
 /.idea
 
 # Gradle #
@@ -13,3 +15,5 @@
 /build
 /libs
 /src/api
+/run
+/classes
