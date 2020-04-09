@@ -13,6 +13,9 @@ import me.ichun.mods.tabula.client.gui.Theme;
 import me.ichun.mods.tabula.client.gui.window.element.ElementListTree;
 import me.ichun.mods.tabula.client.mainframe.core.ProjectHelper;
 import me.ichun.mods.tabula.common.Tabula;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.translation.I18n;
 import org.apache.commons.io.FileUtils;
 import org.lwjgl.input.Keyboard;
@@ -50,7 +53,7 @@ public class WindowOpenProject extends Window
         elements.add(sortBy = new ElementButton(this, 10, height - 22, 80, 16, 10, false, 1, 1, ""));
         elements.add(new ElementButton(this, width - 140, height - 22, 60, 16, 1, false, 1, 1, "element.button.ok"));
         elements.add(new ElementButton(this, width - 70, height - 22, 60, 16, 0, false, 1, 1, "element.button.cancel"));
-        modelList = new ElementListTree(this, BORDER_SIZE + 1, BORDER_SIZE + 1 + 10, width - (BORDER_SIZE * 2 + 2), height - BORDER_SIZE - 22 - 16, 3, false, false);
+        modelList = new MultiSelectElementListTree(this, BORDER_SIZE + 1, BORDER_SIZE + 1 + 10, width - (BORDER_SIZE * 2 + 2), height - BORDER_SIZE - 22 - 16, 3, false, false);
         elements.add(modelList);
 
 
@@ -92,7 +95,14 @@ public class WindowOpenProject extends Window
                 try {
                     List<File> fileList = (List<File>) transferable.getTransferData(DataFlavor.javaFileListFlavor);
                     File data = new File(ResourceHelper.getSaveDir(), "previous_opened_storage.dat");
-                    List<String> lines = FileUtils.readLines(data, Charset.defaultCharset());
+                    List<String> lines = new ArrayList<>();
+                    if(data.exists()) {
+                        try {
+                            lines = FileUtils.readLines(data, Charset.defaultCharset());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
                     for (File file : fileList) {
                         if(!lines.contains(file.getAbsolutePath())) {
                             lines.add(file.getAbsolutePath());
@@ -133,12 +143,12 @@ public class WindowOpenProject extends Window
                     if(project == null)
                     {
                         workspace.addWindowOnTop(new WindowPopup(workspace, 0, 0, 180, 80, 180, 80, "window.open.failed").putInMiddleOfScreen());
+                        break;
                     }
                     else
                     {
                         this.initiateProject(project, (File) tree.attachedObject, false);
                     }
-                    break;
                 }
             }
         }
@@ -193,6 +203,33 @@ public class WindowOpenProject extends Window
         else if(!((GuiWorkspace)workspace).sessionEnded)
         {
             ProjectHelper.sendProjectToServer(((GuiWorkspace)workspace).host, "", project, false);
+        }
+    }
+
+    private class MultiSelectElementListTree extends ElementListTree {
+
+        public MultiSelectElementListTree(Window window, int x, int y, int w, int h, int ID, boolean igMin, boolean drag) {
+            super(window, x, y, w, h, ID, igMin, drag);
+        }
+
+        @Override
+        public void createTree(ResourceLocation loc, Object obj, int h, int attach, boolean expandable, boolean collapse) {
+            trees.add(new MultiSelectTree(loc, obj, h, attach, expandable, collapse));
+        }
+
+        private class MultiSelectTree extends Tree {
+
+            public MultiSelectTree(ResourceLocation loc, Object obj, int h, int attach, boolean expandable, boolean collapse) {
+                super(loc, obj, h, attach, expandable, collapse);
+            }
+
+            @Override
+            public void deselectOthers(ArrayList<Tree> trees) {
+                //NO-OP if ctrl key is down
+                if(!GuiScreen.isCtrlKeyDown()) {
+                    super.deselectOthers(trees);
+                }
+            }
         }
     }
 }
