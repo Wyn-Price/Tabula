@@ -120,6 +120,8 @@ public class WindowTexture extends Window
             boolean mouseDown = !currentMouse && lastMouseDown;
             boolean mouseOverAny = false;
 
+            List<CubeInfo> toUpdate = new ArrayList<>();
+
             for(ElementListTree.Tree tree : ((GuiWorkspace)workspace).windowModelTree.modelList.trees)
             {
                 if(tree.attachedObject instanceof CubeInfo)
@@ -139,6 +141,7 @@ public class WindowTexture extends Window
                         if(currentMouse) {
                             info.txOffset[0] += diffX;
                             info.txOffset[1] += diffY;
+                            toUpdate.add(info);
                         }
                     }
 
@@ -213,6 +216,9 @@ public class WindowTexture extends Window
                     RendererHelper.drawColourOnScreen((int)(0*rMod), (int)(255*gMod), (int)(0*bMod), alpha, posXs[4], posYs[4], widths[4], heights[4], 0D);
                     RendererHelper.drawColourOnScreen((int)(0*rMod), (int)(170*gMod), (int)(0*bMod), alpha, posXs[5], posYs[5], widths[5], heights[5], 0D);
                 }
+            }
+            for (CubeInfo info : toUpdate) {
+                ((GuiWorkspace)this.workspace).updateCube(info);
             }
             if(mouseDown && !mouseOverAny) {
                 selectedIdentifiers.clear();

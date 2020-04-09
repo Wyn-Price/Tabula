@@ -537,16 +537,7 @@ public class GuiWorkspace extends IWorkspace
                             toMove.position[1] += point.y * 16F;
                             toMove.position[2] += point.z * 16F;
 
-                            Gson gson = new Gson();
-                            String s = gson.toJson(toMove);
-                            if(!this.remoteSession)
-                            {
-                                Tabula.proxy.tickHandlerClient.mainframe.updateCube(this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos());
-                            }
-                            else if(!this.sessionEnded && this.isEditor)
-                            {
-                                Tabula.channel.sendToServer(new PacketGenericMethod(this.host, "updateCube", this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos()));
-                            }
+                            this.updateCube(toMove);
                         }
 
                         this.anchorSelectedVertex = Pair.of(-1, "");
@@ -932,6 +923,19 @@ public class GuiWorkspace extends IWorkspace
             GlStateManager.popMatrix();
 
             GlStateManager.popMatrix();
+        }
+    }
+
+    public void updateCube(CubeInfo cube) {
+        Gson gson = new Gson();
+        String s = gson.toJson(cube);
+        if(!this.remoteSession)
+        {
+            Tabula.proxy.tickHandlerClient.mainframe.updateCube(this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos());
+        }
+        else if(!this.sessionEnded && this.isEditor)
+        {
+            Tabula.channel.sendToServer(new PacketGenericMethod(this.host, "updateCube", this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos()));
         }
     }
 
@@ -1894,6 +1898,8 @@ public class GuiWorkspace extends IWorkspace
 
             if(breakout >= 100000 || collide) {
                 this.addWindowOnTop(new WindowPopup(this, 0, 0, 180, 80, 180, 80, "window.autoLayout.failed").putInMiddleOfScreen());
+            } else {
+                this.updateCube(cube);
             }
         }
     }

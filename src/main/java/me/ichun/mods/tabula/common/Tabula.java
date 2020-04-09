@@ -34,7 +34,7 @@ public class Tabula
 {
     public static final String MOD_NAME = "Tabula";
     public static final String MOD_ID = "tabula";
-    public static final String VERSION = iChunUtil.VERSION_MAJOR + ".0.104";
+    public static final String VERSION = iChunUtil.VERSION_MAJOR + ".0.105";
 
     public static final Logger LOGGER = Logger.createLogger(Tabula.MOD_NAME);
 
