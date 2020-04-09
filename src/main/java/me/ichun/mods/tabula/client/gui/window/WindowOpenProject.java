@@ -91,16 +91,18 @@ public class WindowOpenProject extends Window
             if(transferable != null && transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
                 try {
                     List<File> fileList = (List<File>) transferable.getTransferData(DataFlavor.javaFileListFlavor);
-                    if(fileList.size() == 1) {
-                        File file = fileList.get(0);
-
-                        FileUtils.writeLines(new File(ResourceHelper.getSaveDir(), "previous_opened_storage.dat"), Collections.singletonList(file.getAbsoluteFile()), true);
-
+                    File data = new File(ResourceHelper.getSaveDir(), "previous_opened_storage.dat");
+                    List<String> lines = FileUtils.readLines(data, Charset.defaultCharset());
+                    for (File file : fileList) {
+                        if(!lines.contains(file.getAbsolutePath())) {
+                            lines.add(file.getAbsolutePath());
+                        }
                         ProjectInfo project = ImportList.createProjectFromFile(file);
                         if(project != null) {
                             this.initiateProject(project, file, true);
                         }
                     }
+                    FileUtils.writeLines(data, lines);
                 } catch (Throwable ignored) {
                     //ignore
                 }
