@@ -12,8 +12,10 @@ import me.ichun.mods.ichunutil.common.module.tabula.project.ProjectInfo;
 import me.ichun.mods.tabula.client.core.ResourceHelper;
 import me.ichun.mods.tabula.client.gui.GuiWorkspace;
 import me.ichun.mods.tabula.client.gui.Theme;
+import me.ichun.mods.tabula.common.Tabula;
 import net.minecraft.util.text.translation.I18n;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 
 public class WindowSaveAs extends Window
@@ -103,27 +105,33 @@ public class WindowSaveAs extends Window
             {
                 workspace.windowDragged = null;
             }
+            ProjectInfo info = ((GuiWorkspace) workspace).projectManager.projects.get(((GuiWorkspace) workspace).projectManager.selectedProject);
             if(file.exists())
             {
-                workspace.addWindowOnTop(new WindowOverwrite(workspace, this, ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject), file).putInMiddleOfScreen());
+                workspace.addWindowOnTop(new WindowOverwrite(workspace, this, info, file).putInMiddleOfScreen());
             }
             else
             {
-                if(ProjectInfo.saveProject(((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject), file))
+                BufferedImage img = info.bufferedTexture;
+                if(Tabula.config.saveTexture == 0) {
+                    info.bufferedTexture = null;
+                }
+                if(ProjectInfo.saveProject(info, file))
                 {
-                    ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject).saveFile = file;
-                    ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject).saveFileMd5 = IOUtil.getMD5Checksum(file);
+                    info.saveFile = file;
+                    info.saveFileMd5 = IOUtil.getMD5Checksum(file);
                     workspace.removeWindow(this, true);
 
                     if(closeProject && !((GuiWorkspace)workspace).projectManager.projects.isEmpty())
                     {
-                        ((GuiWorkspace)workspace).closeProject(((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject));
+                        ((GuiWorkspace)workspace).closeProject(info);
                     }
                 }
                 else
                 {
                     workspace.addWindowOnTop(new WindowPopup(workspace, 0, 0, 180, 80, 180, 80, "window.saveAs.failed").putInMiddleOfScreen());
                 }
+                info.bufferedTexture = img;
             }
         }
     }

@@ -27,6 +27,10 @@ public class Config extends ConfigBase
 
     @ConfigProp
     @IntBool
+    public int saveTexture = 1;
+
+    @ConfigProp
+    @IntBool
     public int renderModelControls = 1;
 
     @ConfigProp

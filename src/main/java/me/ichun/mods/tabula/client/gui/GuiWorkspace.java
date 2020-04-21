@@ -1614,6 +1614,10 @@ public class GuiWorkspace extends IWorkspace
                 String md5 = IOUtil.getMD5Checksum(proj.saveFile);
                 if(md5 != null && md5.equals(proj.saveFileMd5))
                 {
+                    BufferedImage img = proj.bufferedTexture;
+                    if(Tabula.config.saveTexture == 0) {
+                        proj.bufferedTexture = null;
+                    }
                     if(ProjectInfo.saveProject(proj, proj.saveFile))
                     {
                         proj.saveFileMd5 = IOUtil.getMD5Checksum(proj.saveFile);
@@ -1627,6 +1631,7 @@ public class GuiWorkspace extends IWorkspace
                     {
                         error = true;
                     }
+                    proj.bufferedTexture = img;
                 }
             }
             if(saveAs)

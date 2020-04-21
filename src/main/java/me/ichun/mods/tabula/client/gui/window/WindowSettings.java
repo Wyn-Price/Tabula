@@ -25,6 +25,7 @@ public class WindowSettings extends Window
         elements.add(new ElementCheckBox(this, 11, 20 + (15 * offset++), 3, false, 0, 0, "tabula.config.prop.renderModelControls.comment", Tabula.config.renderModelControls == 1));// ID 3
         elements.add(new ElementCheckBox(this, 11, 20 + (15 * offset++), 5, false, 0, 0, "tabula.config.prop.swapPositionOffset.comment", Tabula.config.swapPositionOffset == 1));
         elements.add(new ElementCheckBox(this, 11, 20 + (15 * offset++), 1, false, 0, 0, "tabula.config.prop.chatSound.comment", Tabula.config.chatSound == 1));
+        elements.add(new ElementCheckBox(this, 11, 20 + (15 * offset++), 6, false, 0, 0, "tabula.config.prop.saveTexture.comment", Tabula.config.saveTexture == 1));
 
         elements.add(new ElementNumberInput(this, 10, 19 + (15 * offset++), 40, 12, 4, "tabula.config.prop.tooltipTime.comment", 1, false, 0, Integer.MAX_VALUE, Tabula.config.tooltipTime));
     }
@@ -41,6 +42,7 @@ public class WindowSettings extends Window
             workspace.getFontRenderer().drawString(I18n.translateToLocal("tabula.config.prop.renderModelControls.name"), posX + 25, posY + 21 + (15 * offset++), Theme.getAsHex(workspace.currentTheme.font), false);
             workspace.getFontRenderer().drawString(I18n.translateToLocal("tabula.config.prop.swapPositionOffset.comment"), posX + 25, posY + 21 + (15 * offset++), Theme.getAsHex(workspace.currentTheme.font), false);
             workspace.getFontRenderer().drawString(I18n.translateToLocal("tabula.config.prop.chatSound.comment"), posX + 25, posY + 21 + (15 * offset++), Theme.getAsHex(workspace.currentTheme.font), false);
+            workspace.getFontRenderer().drawString(I18n.translateToLocal("tabula.config.prop.saveTexture.comment"), posX + 25, posY + 21 + (15 * offset++), Theme.getAsHex(workspace.currentTheme.font), false);
 
             workspace.getFontRenderer().drawString(I18n.translateToLocal("tabula.config.prop.tooltipTime.comment"), posX + 55, posY + 21 + (15 * offset++), Theme.getAsHex(workspace.currentTheme.font), false);
         }
@@ -77,6 +79,11 @@ public class WindowSettings extends Window
         else if(element.id == 5)
         {
             Tabula.config.swapPositionOffset = (((ElementCheckBox)element).toggledState ? 1 : 0);
+            Tabula.config.save();
+        }
+        else if(element.id == 6)
+        {
+            Tabula.config.saveTexture = (((ElementCheckBox)element).toggledState ? 1 : 0);
             Tabula.config.save();
         }
         if(element.id == -1)

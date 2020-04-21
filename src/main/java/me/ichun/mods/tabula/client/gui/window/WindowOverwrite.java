@@ -8,8 +8,10 @@ import me.ichun.mods.ichunutil.client.gui.window.element.ElementButton;
 import me.ichun.mods.ichunutil.common.core.util.IOUtil;
 import me.ichun.mods.ichunutil.common.module.tabula.project.ProjectInfo;
 import me.ichun.mods.tabula.client.gui.Theme;
+import me.ichun.mods.tabula.common.Tabula;
 import net.minecraft.util.text.translation.I18n;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 
 public class WindowOverwrite extends Window
@@ -53,6 +55,10 @@ public class WindowOverwrite extends Window
             {
                 workspace.windowDragged = null;
             }
+            BufferedImage img = project.bufferedTexture;
+            if(Tabula.config.saveTexture == 0) {
+                project.bufferedTexture = null;
+            }
             if(ProjectInfo.saveProject(project, saveFile))
             {
                 project.saveFile = saveFile;
@@ -64,6 +70,7 @@ public class WindowOverwrite extends Window
                 workspace.addWindowOnTop(new WindowPopup(workspace, 0, 0, 180, 80, 180, 80, "window.saveAs.failed").putInMiddleOfScreen());
             }
             workspace.removeWindow(this, true);
+            project.bufferedTexture = img;
         }
     }
 }
