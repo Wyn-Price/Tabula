@@ -19,6 +19,7 @@ import me.ichun.mods.tabula.client.core.ModelSelector;
 import me.ichun.mods.tabula.client.core.ResourceHelper;
 import me.ichun.mods.tabula.client.gui.window.*;
 import me.ichun.mods.tabula.client.gui.window.element.ElementListTree;
+import me.ichun.mods.tabula.client.mainframe.Mainframe;
 import me.ichun.mods.tabula.client.mainframe.core.ProjectHelper;
 import me.ichun.mods.tabula.client.model.ModelVoxel;
 import me.ichun.mods.tabula.common.Tabula;
@@ -40,6 +41,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.translation.I18n;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.core.util.FileUtils;
 import org.lwjgl.BufferUtils;
@@ -129,6 +131,9 @@ public class GuiWorkspace extends IWorkspace
     public int controlDrag = -1;
     public int controlDragX;
     public int controlDragY;
+
+    public File openingFile;
+    public String openingJson;
 
     public boolean wantToExit;
 
@@ -541,7 +546,7 @@ public class GuiWorkspace extends IWorkspace
                             toMove.position[1] += point.y * 16F;
                             toMove.position[2] += point.z * 16F;
 
-                            this.updateCube(toMove);
+                            this.updateCube(null, toMove);
                         }
 
                         this.anchorSelectedVertex = Pair.of(-1, "");
@@ -930,16 +935,19 @@ public class GuiWorkspace extends IWorkspace
         }
     }
 
-    public void updateCube(CubeInfo cube) {
+    public void updateCube(String identif, CubeInfo cube) {
+        if(identif == null) {
+            identif = this.projectManager.projects.get(this.projectManager.selectedProject).identifier;
+        }
         Gson gson = new Gson();
         String s = gson.toJson(cube);
         if(!this.remoteSession)
         {
-            Tabula.proxy.tickHandlerClient.mainframe.updateCube(this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos());
+            Tabula.proxy.tickHandlerClient.mainframe.updateCube(identif, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos());
         }
         else if(!this.sessionEnded && this.isEditor)
         {
-            Tabula.channel.sendToServer(new PacketGenericMethod(this.host, "updateCube", this.projectManager.projects.get(this.projectManager.selectedProject).identifier, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos()));
+            Tabula.channel.sendToServer(new PacketGenericMethod(this.host, "updateCube", identif, s, this.windowAnimate.animList.selectedIdentifier, this.windowAnimate.timeline.selectedIdentifier, this.windowAnimate.timeline.getCurrentPos()));
         }
     }
 
@@ -1826,7 +1834,7 @@ public class GuiWorkspace extends IWorkspace
     public void layoutTextures() {
         if(projectManager.selectedProject == -1) return;
         ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
-        if (!layoutTextures(info.textureWidth, info.textureHeight)) {
+        if (!layoutTextures(projectManager.projects.get(projectManager.selectedProject), info.textureWidth, info.textureHeight)) {
             this.addWindowOnTop(new WindowPopup(this, 0, 0, 180, 80, 180, 80, "window.autoLayout.failed").putInMiddleOfScreen());
         }
     }
@@ -1834,35 +1842,61 @@ public class GuiWorkspace extends IWorkspace
     public void minimizeTextureToSquare() {
         if(projectManager.selectedProject == -1) return;
         ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
+
+        ProjectInfo newInfo = new Gson().fromJson(info.getAsJson(), ProjectInfo.class);
+        newInfo.inherit(info);
+        newInfo.identifier = RandomStringUtils.randomAscii(Mainframe.IDENTIFIER_LENGTH);
+
         //A max texture format size of 1024
         for (int size = 1; size < 64; size++) {
-            if(this.layoutTextures(size * 16, size * 16)) {
-                String projName = info.modelName;
-                String authName = info.authorName;
-                int dimW = size * 16;
-                int dimH = size * 16;
-                double scaleX = info.scale[0];
-                double scaleY = info.scale[1];
-                double scaleZ = info.scale[2];
+            if(this.layoutTextures(newInfo, size * 16, size * 16)) {
+                newInfo.textureWidth = size * 16;
+                newInfo.textureHeight = size * 16;
 
+                newInfo.repair();
+
+                openNextNewProject = true;
                 if(!remoteSession)
                 {
-                    Tabula.proxy.tickHandlerClient.mainframe.editProject(projectManager.projects.get(projectManager.selectedProject).identifier, projName, authName, dimW, dimH, scaleX, scaleY, scaleZ);
+                    File file = info.saveFile;
+                    File f = file == null ? null : new File(file.getParentFile(), file.getName().substring(0, file.getName().lastIndexOf('.')) + "_sorted.tbl");
+                    String json = newInfo.getAsJson();
+
+                    if(f != null) {
+                        openingFile = f;
+                        openingJson = json;
+                    }
+
+                    try {
+                        if(f == null || f.exists() || f.createNewFile()) {
+                            Tabula.proxy.tickHandlerClient.mainframe.overrideProject("", json, newInfo.bufferedTexture, f);
+
+                            ProjectInfo selected = projectManager.projects.get(projectManager.selectedProject);
+
+                            BufferedImage image = selected.bufferedTexture;
+                            selected.bufferedTexture = null;
+                            save(false);
+                            selected.bufferedTexture = image;
+                        }
+                    } catch (IOException e) {
+                        Tabula.LOGGER.error(e);
+                    }
+
                 }
-                else if(!sessionEnded && isEditor)
+                else if(!sessionEnded)
                 {
-                    Tabula.channel.sendToServer(new PacketGenericMethod(host, "editProject", projectManager.projects.get(projectManager.selectedProject).identifier, projName, authName, dimW, dimH, scaleX, scaleY, scaleZ));
+                    ProjectHelper.sendProjectToServer(host, "", newInfo, false);
                 }
+
                 
                 break;
             }
         }
     }
 
-    public boolean layoutTextures(int texWidth, int texHeight) {
+    public boolean layoutTextures(ProjectInfo info, int texWidth, int texHeight) {
         Map<String, int[]> newCoords = new HashMap<>();
 
-        ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
         boolean[][] positions = new boolean[texWidth][texHeight];
         ArrayList<CubeInfo> cubes = info.getAllCubes();
 
@@ -1962,24 +1996,29 @@ public class GuiWorkspace extends IWorkspace
 
             cube.txOffset[0] = uv[0];
             cube.txOffset[1] = uv[1];
-            this.updateCube(cube);
+            this.updateCube(info.identifier, cube);
         }
 
         if(newImg != null) {
-            File newFile = new File(info.textureFile.getParentFile(), info.textureFile.getName().substring(0, info.textureFile.getName().lastIndexOf('.')) + "_sorted.png");
+            if(info.textureFile != null) {
+                try {
+                    File newFile =  new File(info.textureFile.getParentFile(), info.textureFile.getName().substring(0, info.textureFile.getName().lastIndexOf('.')) + "_sorted.png");
+                    if(newFile != null) {
+                        ImageIO.write(newImg, "PNG", newFile);
+                    }
 
-            try {
-                ImageIO.write(newImg, "PNG", newFile);
-
-                info.textureFile = newFile;
-                info.ignoreNextImage = true;
-                info.textureFileMd5 = IOUtil.getMD5Checksum(info.textureFile);
-                windowTexture.listenTime = 0;
-                Tabula.proxy.tickHandlerClient.mainframe.loadTexture(info.identifier, newImg, false);
-
-            } catch (IOException e) {
-                Tabula.LOGGER.error(e);
+                    info.textureFile = newFile;
+                    info.bufferedTexture = newImg;
+                    info.ignoreNextImage = true;
+                    info.textureFileMd5 = IOUtil.getMD5Checksum(info.textureFile);
+                    windowTexture.listenTime = 0;
+                } catch (IOException e) {
+                    Tabula.LOGGER.error(e);
+                }
             }
+
+            Tabula.proxy.tickHandlerClient.mainframe.loadTexture(info.identifier, newImg, false);
+
         }
         return true;
     }

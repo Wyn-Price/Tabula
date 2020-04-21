@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 
 public class ProjectHelper
@@ -55,21 +56,32 @@ public class ProjectHelper
         if(mc.currentScreen instanceof GuiWorkspace)
         {
             GuiWorkspace workspace = (GuiWorkspace)mc.currentScreen;
-            for(int i = workspace.levels.size() - 1; i >= 0; i--)
+            if(workspace.openingJson != null && workspace.openingJson.equals(s))
             {
-                for(int j = workspace.levels.get(i).size() - 1; j >= 0; j--)
+                info.saveFile = workspace.openingFile;
+                info.saveFileMd5 = IOUtil.getMD5Checksum(info.saveFile);
+                info.saved = true;
+                workspace.openingJson = null;
+                workspace.openingFile = null;
+            }
+            else
+            {
+                for(int i = workspace.levels.size() - 1; i >= 0; i--)
                 {
-                    Window window = workspace.levels.get(i).get(j);
-                    if(window instanceof WindowOpenProject)
+                    for(int j = workspace.levels.get(i).size() - 1; j >= 0; j--)
                     {
-                        if(((WindowOpenProject)window).openingJson != null && ((WindowOpenProject)window).openingJson.equals(s))
+                        Window window = workspace.levels.get(i).get(j);
+                        if(window instanceof WindowOpenProject)
                         {
-                            info.saveFile = ((WindowOpenProject)window).openingFile;
-                            info.saveFileMd5 = IOUtil.getMD5Checksum(info.saveFile);
-                            info.saved = true;
+                            if(((WindowOpenProject)window).openingJson != null && ((WindowOpenProject)window).openingJson.equals(s))
+                            {
+                                info.saveFile = ((WindowOpenProject)window).openingFile;
+                                info.saveFileMd5 = IOUtil.getMD5Checksum(info.saveFile);
+                                info.saved = true;
 
-                            window.workspace.removeWindow(window);
-                            break;
+                                window.workspace.removeWindow(window);
+                                break;
+                            }
                         }
                     }
                 }

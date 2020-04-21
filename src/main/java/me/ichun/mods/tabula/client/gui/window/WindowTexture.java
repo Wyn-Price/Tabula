@@ -218,7 +218,7 @@ public class WindowTexture extends Window
                 }
             }
             for (CubeInfo info : toUpdate) {
-                ((GuiWorkspace)this.workspace).updateCube(info);
+                ((GuiWorkspace)this.workspace).updateCube(null, info);
             }
             if(mouseDown && !mouseOverAny) {
                 selectedIdentifiers.clear();
