@@ -36,7 +36,8 @@ public class WindowTopDock extends WindowTopDockBase
     public static final int ID_ADD_EDITOR = 20;
     public static final int ID_REMOVE_EDITOR = 21;
     public static final int ID_AUTO_LAYOUT = 22;
-    public static final int ID_GHOST_MODEL = 23;
+    public static final int ID_MINIMIZE_TO_SQUARE = 23;
+    public static final int ID_GHOST_MODEL = 24;
 
     public static final int ID_VERTEX_SNAP = 25;
 
@@ -66,6 +67,7 @@ public class WindowTopDock extends WindowTopDockBase
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_PASTE_IN_PLACE, true, 0, 0, "topdock.pasteInPlace", new ResourceLocation("tabula", "textures/icon/pasteinplace.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_PASTE_WITHOUT_CHILDREN, true, 0, 0, "topdock.pasteWithoutChildren", new ResourceLocation("tabula", "textures/icon/pastewithoutchildren.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_AUTO_LAYOUT, true, 0, 0, "topdock.autoLayout", new ResourceLocation("tabula", "textures/icon/autolayout.png")));
+        elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_MINIMIZE_TO_SQUARE, true, 0, 0, "topdock.minimizeSquare", new ResourceLocation("tabula", "textures/icon/minimizesquare.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_UNDO, true, 0, 0, "topdock.undo", new ResourceLocation("tabula", "textures/icon/undo.png")));
         elements.add(new ElementButtonTextured(this, 20 * button++, 0, ID_REDO, true, 0, 0, "topdock.redo", new ResourceLocation("tabula", "textures/icon/redo.png")));
         if(((GuiWorkspace)workspace).host != null)
@@ -197,6 +199,10 @@ public class WindowTopDock extends WindowTopDockBase
         else if(element.id == ID_AUTO_LAYOUT)
         {
             ((GuiWorkspace)workspace).layoutTextures();
+        }
+        else if(element.id == ID_MINIMIZE_TO_SQUARE)
+        {
+            ((GuiWorkspace)workspace).minimizeTextureToSquare();
         }
         else if(element.id == ID_WOOD)
         {

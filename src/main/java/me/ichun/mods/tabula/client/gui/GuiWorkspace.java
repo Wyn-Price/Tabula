@@ -41,6 +41,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.translation.I18n;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.core.util.FileUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -48,11 +49,14 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.util.glu.Project;
 
+import javax.imageio.ImageIO;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Point3d;
 import javax.vecmath.Vector3d;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -1822,38 +1826,73 @@ public class GuiWorkspace extends IWorkspace
     public void layoutTextures() {
         if(projectManager.selectedProject == -1) return;
         ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
+        if (!layoutTextures(info.textureWidth, info.textureHeight)) {
+            this.addWindowOnTop(new WindowPopup(this, 0, 0, 180, 80, 180, 80, "window.autoLayout.failed").putInMiddleOfScreen());
+        }
+    }
 
-        boolean[][] positions = new boolean[info.textureWidth][info.textureHeight];
+    public void minimizeTextureToSquare() {
+        if(projectManager.selectedProject == -1) return;
+        ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
+        //A max texture format size of 1024
+        for (int size = 1; size < 64; size++) {
+            if(this.layoutTextures(size * 16, size * 16)) {
+                String projName = info.modelName;
+                String authName = info.authorName;
+                int dimW = size * 16;
+                int dimH = size * 16;
+                double scaleX = info.scale[0];
+                double scaleY = info.scale[1];
+                double scaleZ = info.scale[2];
 
+                if(!remoteSession)
+                {
+                    Tabula.proxy.tickHandlerClient.mainframe.editProject(projectManager.projects.get(projectManager.selectedProject).identifier, projName, authName, dimW, dimH, scaleX, scaleY, scaleZ);
+                }
+                else if(!sessionEnded && isEditor)
+                {
+                    Tabula.channel.sendToServer(new PacketGenericMethod(host, "editProject", projectManager.projects.get(projectManager.selectedProject).identifier, projName, authName, dimW, dimH, scaleX, scaleY, scaleZ));
+                }
+                
+                break;
+            }
+        }
+    }
+
+    public boolean layoutTextures(int texWidth, int texHeight) {
+        Map<String, int[]> newCoords = new HashMap<>();
+
+        ProjectInfo info = projectManager.projects.get(projectManager.selectedProject);
+        boolean[][] positions = new boolean[texWidth][texHeight];
         ArrayList<CubeInfo> cubes = info.getAllCubes();
 
         for(CubeInfo cube : cubes) {
             boolean collide = true;
             int breakout = 0;
-            cube.txOffset[0] = 0;
-            cube.txOffset[1] = 0;
+            int newU = 0;
+            int newV = 0;
 
-            while (collide && cube.txOffset[0] + cube.dimensions[2] * 2 + cube.dimensions[0] * 2 < info.textureWidth && cube.txOffset[1] + cube.dimensions[1] + cube.dimensions[2] < info.textureHeight && breakout++ < 100000) {
+            while (collide && newU + cube.dimensions[2] * 2 + cube.dimensions[0] * 2 < texWidth && newV + cube.dimensions[1] + cube.dimensions[2] < texHeight && breakout++ < 100000) {
                 collide = false;
                 for (int i = 0; i < cube.dimensions[0]; i++) {
                     for (int j = 0; j < cube.dimensions[1]; j++) {
                         for (int k = 0; k < cube.dimensions[2]; k++) {
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + k, cube.txOffset[1] + cube.dimensions[2] + j) && positions[cube.txOffset[0] + k][cube.txOffset[1] + cube.dimensions[2] + j]) {
+                            if (withinBounds(texWidth, texHeight, newU + k, newV + cube.dimensions[2] + j) && positions[newU + k][newV + cube.dimensions[2] + j]) {
                                 collide = true;
                             }
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + i, cube.txOffset[1] + cube.dimensions[2] + j) && positions[cube.txOffset[0] + cube.dimensions[2] + i][cube.txOffset[1] + cube.dimensions[2] + j]) {
+                            if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + i, newV + cube.dimensions[2] + j) && positions[newU + cube.dimensions[2] + i][newV + cube.dimensions[2] + j]) {
                                 collide = true;
                             }
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + k, cube.txOffset[1] + cube.dimensions[2] + j) && positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + k][cube.txOffset[1] + cube.dimensions[2] + j]) {
+                            if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + k, newV + cube.dimensions[2] + j) && positions[newU + cube.dimensions[2] + cube.dimensions[0] + k][newV + cube.dimensions[2] + j]) {
                                 collide = true;
                             }
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i, cube.txOffset[1] + cube.dimensions[2] + j) && positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i][cube.txOffset[1] + cube.dimensions[2] + j]) {
+                            if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i, newV + cube.dimensions[2] + j) && positions[newU + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i][newV + cube.dimensions[2] + j]) {
                                 collide = true;
                             }
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + i, cube.txOffset[1] + k) && positions[cube.txOffset[0] + cube.dimensions[2] + i][cube.txOffset[1] + k]) {
+                            if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + i, newV + k) && positions[newU + cube.dimensions[2] + i][newV + k]) {
                                 collide = true;
                             }
-                            if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + i, cube.txOffset[1] + k) && positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + i][cube.txOffset[1] + k]) {
+                            if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + i, newV + k) && positions[newU + cube.dimensions[2] + cube.dimensions[0] + i][newV + k]) {
                                 collide = true;
                             }
                         }
@@ -1864,23 +1903,23 @@ public class GuiWorkspace extends IWorkspace
                     for (int i = 0; i < cube.dimensions[0]; i++) {
                         for (int j = 0; j < cube.dimensions[1]; j++) {
                             for (int k = 0; k < cube.dimensions[2]; k++) {
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + k, cube.txOffset[1] + cube.dimensions[2] + j)) {
-                                    positions[cube.txOffset[0] + k][cube.txOffset[1] + cube.dimensions[2] + j] = true;
+                                if (withinBounds(texWidth, texHeight, newU + k, newV + cube.dimensions[2] + j)) {
+                                    positions[newU + k][newV + cube.dimensions[2] + j] = true;
                                 }
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + i, cube.txOffset[1] + cube.dimensions[2] + j)) {
-                                    positions[cube.txOffset[0] + cube.dimensions[2] + i][cube.txOffset[1] + cube.dimensions[2] + j] = true;
+                                if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + i, newV + cube.dimensions[2] + j)) {
+                                    positions[newU + cube.dimensions[2] + i][newV + cube.dimensions[2] + j] = true;
                                 }
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + k, cube.txOffset[1] + cube.dimensions[2] + j)) {
-                                    positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + k][cube.txOffset[1] + cube.dimensions[2] + j] = true;
+                                if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + k, newV + cube.dimensions[2] + j)) {
+                                    positions[newU + cube.dimensions[2] + cube.dimensions[0] + k][newV + cube.dimensions[2] + j] = true;
                                 }
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i, cube.txOffset[1] + cube.dimensions[2] + j)) {
-                                    positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i][cube.txOffset[1] + cube.dimensions[2] + j] = true;
+                                if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i, newV + cube.dimensions[2] + j)) {
+                                    positions[newU + cube.dimensions[2] + cube.dimensions[0] + cube.dimensions[2] + i][newV + cube.dimensions[2] + j] = true;
                                 }
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + i, cube.txOffset[1] + k)) {
-                                    positions[cube.txOffset[0] + cube.dimensions[2] + i][cube.txOffset[1] + k] = true;
+                                if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + i, newV + k)) {
+                                    positions[newU + cube.dimensions[2] + i][newV + k] = true;
                                 }
-                                if (withinBounds(info.textureWidth, info.textureHeight, cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + i, cube.txOffset[1] + k)) {
-                                    positions[cube.txOffset[0] + cube.dimensions[2] + cube.dimensions[0] + i][cube.txOffset[1] + k] = true;
+                                if (withinBounds(texWidth, texHeight, newU + cube.dimensions[2] + cube.dimensions[0] + i, newV + k)) {
+                                    positions[newU + cube.dimensions[2] + cube.dimensions[0] + i][newV + k] = true;
                                 }
                             }
                         }
@@ -1888,20 +1927,61 @@ public class GuiWorkspace extends IWorkspace
 
                 }
                 if(collide) {
-                    cube.txOffset[0]++;
-                    if(cube.txOffset[0] + cube.dimensions[2] * 2 + cube.dimensions[0] * 2 >= info.textureWidth) {
-                        cube.txOffset[0] = 0;
-                        cube.txOffset[1]++;
+                    newU++;
+                    if(newU + cube.dimensions[2] * 2 + cube.dimensions[0] * 2 >= texWidth) {
+                        newU = 0;
+                        newV++;
                     }
                 }
             }
 
             if(breakout >= 100000 || collide) {
-                this.addWindowOnTop(new WindowPopup(this, 0, 0, 180, 80, 180, 80, "window.autoLayout.failed").putInMiddleOfScreen());
+                return false;
             } else {
-                this.updateCube(cube);
+                newCoords.put(cube.identifier, new int[]{ newU, newV });
             }
         }
+
+        BufferedImage oldImg = info.bufferedTexture;
+
+        int scale = oldImg == null ? 0 : oldImg.getWidth() / info.textureWidth;
+
+        BufferedImage newImg = oldImg == null ? null : new BufferedImage(texWidth*scale, texHeight*scale, oldImg.getType());
+
+        for (CubeInfo cube : info.getAllCubes()) {
+            int[] dim = cube.dimensions;
+            int[] uv = newCoords.get(cube.identifier);
+
+            if(oldImg != null) {
+                int[] top = oldImg.getRGB((cube.txOffset[0] + dim[2])*scale, cube.txOffset[1]*scale, 2*dim[0]*scale, dim[2]*scale, null, 0, oldImg.getWidth());
+                newImg.setRGB((uv[0] + dim[2])*scale, uv[1]*scale, 2*dim[0]*scale, dim[2]*scale, top, 0, oldImg.getWidth());
+
+                int[] bottom = oldImg.getRGB(cube.txOffset[0]*scale, (cube.txOffset[1] + dim[2])*scale, 2*(dim[0] + dim[2])*scale, dim[1]*scale, null, 0, oldImg.getWidth());
+                newImg.setRGB(uv[0]*scale, (uv[1] + dim[2])*scale, 2*(dim[0] + dim[2])*scale, dim[1]*scale, bottom, 0, oldImg.getWidth());
+            }
+
+            cube.txOffset[0] = uv[0];
+            cube.txOffset[1] = uv[1];
+            this.updateCube(cube);
+        }
+
+        if(newImg != null) {
+            File newFile = new File(info.textureFile.getParentFile(), info.textureFile.getName().substring(0, info.textureFile.getName().lastIndexOf('.')) + "_sorted.png");
+
+            try {
+                ImageIO.write(newImg, "PNG", newFile);
+
+                info.textureFile = newFile;
+                info.ignoreNextImage = true;
+                info.textureFileMd5 = IOUtil.getMD5Checksum(info.textureFile);
+                windowTexture.listenTime = 0;
+                Tabula.proxy.tickHandlerClient.mainframe.loadTexture(info.identifier, newImg, false);
+
+            } catch (IOException e) {
+                Tabula.LOGGER.error(e);
+            }
+        }
+        return true;
     }
 
     public boolean withinBounds(int textureWidth, int textureHeight, int x, int y)
