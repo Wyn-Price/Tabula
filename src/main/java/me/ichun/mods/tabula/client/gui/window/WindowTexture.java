@@ -30,10 +30,7 @@ import org.lwjgl.opengl.GL11;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class WindowTexture extends Window
 {
@@ -47,7 +44,7 @@ public class WindowTexture extends Window
 
     private boolean lastMouseDown;
     private String startingMouseDown = "";
-    private Set<String> selectedIdentifiers = new HashSet<>();
+    private Map<String, double[]> selectedToTexCoords = new HashMap<>();
 
     public WindowTexture(IWorkspace parent, int x, int y, int w, int h, int minW, int minH)
     {
@@ -62,9 +59,6 @@ public class WindowTexture extends Window
     public void draw(int mouseX, int mouseY) //4 pixel border?
     {
         super.draw(mouseX, mouseY);
-
-
-
         if(!((GuiWorkspace)workspace).projectManager.projects.isEmpty() && !minimized)
         {
             ProjectInfo project = ((GuiWorkspace)workspace).projectManager.projects.get(((GuiWorkspace)workspace).projectManager.selectedProject);
@@ -133,14 +127,19 @@ public class WindowTexture extends Window
                     float gMod = 1F;
                     float bMod = 1F;
 
-                    if(selectedIdentifiers.contains(info.identifier)) {
+                    if(selectedToTexCoords.containsKey(info.identifier)) {
                         rMod = 1F;
                         gMod = 0.5F;
                         bMod = 0.6F;
                         alpha = 125;
                         if(currentMouse) {
-                            info.txOffset[0] += diffX;
-                            info.txOffset[1] += diffY;
+
+                            double[] doubles = selectedToTexCoords.get(info.identifier);
+                            doubles[0] += diffX;
+                            doubles[1] += diffY;
+
+                            info.txOffset[0] = (int) doubles[0];
+                            info.txOffset[1] = (int) doubles[1];
                             toUpdate.add(info);
                         }
                     }
@@ -190,7 +189,7 @@ public class WindowTexture extends Window
                             gMod = 0.25F;
 
                             if(currentMouse && (diffX != 0 || diffY != 0) && info.identifier.equals(startingMouseDown)) {
-                                selectedIdentifiers.add(info.identifier);
+                                selectedToTexCoords.put(info.identifier, new double[]{ info.txOffset[0], info.txOffset[1] });
                             }
 
                             if(currentMouse && !lastMouseDown) {
@@ -198,10 +197,10 @@ public class WindowTexture extends Window
                             }
 
                             if(mouseDown) {
-                                if(!selectedIdentifiers.contains(info.identifier)) {
-                                    selectedIdentifiers.add(info.identifier);
+                                if(!selectedToTexCoords.containsKey(info.identifier)) {
+                                    selectedToTexCoords.put(info.identifier, new double[]{ info.txOffset[0], info.txOffset[1] });
                                 } else {
-                                    selectedIdentifiers.remove(info.identifier);
+                                    selectedToTexCoords.remove(info.identifier);
                                 }
                             }
 
@@ -221,7 +220,7 @@ public class WindowTexture extends Window
                 ((GuiWorkspace)this.workspace).updateCube(null, info);
             }
             if(mouseDown && !mouseOverAny) {
-                selectedIdentifiers.clear();
+                selectedToTexCoords.clear();
             }
 
             GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
