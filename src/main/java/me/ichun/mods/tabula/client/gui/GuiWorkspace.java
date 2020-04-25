@@ -1903,7 +1903,21 @@ public class GuiWorkspace extends IWorkspace
         Map<String, int[]> newCoords = new HashMap<>();
 
         boolean[][] positions = new boolean[texWidth][texHeight];
-        ArrayList<CubeInfo> cubes = info.getAllCubes();
+        ArrayList<CubeInfo> cubes = new ArrayList<>();
+        Map<CubeInfo, List<CubeInfo>> linked = new HashMap<>();
+        for (CubeInfo cube : info.getAllCubes()) {
+            boolean cubeAccepted = true;
+            for (CubeInfo currentCube : cubes) {
+                if (Arrays.equals(cube.dimensions, currentCube.dimensions) && Arrays.equals(cube.txOffset, currentCube.txOffset)) {
+                    linked.computeIfAbsent(currentCube, c -> new ArrayList<>()).add(cube);
+                    cubeAccepted = false;
+                    break;
+                }
+            }
+            if(cubeAccepted) {
+                cubes.add(cube);
+            }
+        }
 
         for(CubeInfo cube : cubes) {
             boolean collide = true;
@@ -1987,7 +2001,7 @@ public class GuiWorkspace extends IWorkspace
 
         BufferedImage newImg = oldImg == null ? null : new BufferedImage(texWidth*scale, texHeight*scale, oldImg.getType());
 
-        for (CubeInfo cube : info.getAllCubes()) {
+        for (CubeInfo cube : cubes) {
             int[] dim = cube.dimensions;
             int[] uv = newCoords.get(cube.identifier);
 
@@ -2002,6 +2016,14 @@ public class GuiWorkspace extends IWorkspace
             cube.txOffset[0] = uv[0];
             cube.txOffset[1] = uv[1];
             this.updateCube(info.identifier, cube);
+
+            if(linked.containsKey(cube)) {
+                for (CubeInfo cubeInfo : linked.get(cube)) {
+                    cubeInfo.txOffset[0] = uv[0];
+                    cubeInfo.txOffset[1] = uv[1];
+                    this.updateCube(info.identifier, cubeInfo);
+                }
+            }
         }
 
         if(newImg != null) {
